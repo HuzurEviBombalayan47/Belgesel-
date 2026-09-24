@@ -1,50 +1,55 @@
-import { Clapperboard, Film, Map, Type } from "lucide-react";
+import { useMemo } from "react";
+import {
+  Clapperboard,
+  Loader2,
+  Search,
+  Sparkles,
+  TriangleAlert,
+  Type,
+  Volume2,
+} from "lucide-react";
 import { formatClock } from "@/lib/format";
-import type { Scene } from "@/lib/types";
-import { Badge, badgeVariants } from "@/components/ui/badge";
+import { sceneStyle } from "@/lib/sceneStyles";
+import type { Scene, ScenePlanningInfo } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const TREATMENT_LABELS: Record<string, string> = {
-  ken_burns: "Ken Burns photo",
-  archival_photo: "Archival photo",
-  map: "Map sequence",
-  chart: "Chart graphic",
-  motion_typography: "Kinetic type",
-  stock_footage: "Stock footage",
-  title_card: "Title card",
-};
-
-/** Stage-2 roadmap of documentary treatments the scene planner will produce. */
-const ROADMAP = [
-  {
-    icon: Film,
-    label: "Archival Photo Animation",
-    desc: "Ken Burns 2.5D parallax, grain and sepia treatment on historical photographs",
-  },
-  {
-    icon: Map,
-    label: "Dynamic Historical Maps",
-    desc: "Animated route lines, territory shading and camera pans across vintage cartography",
-  },
-  {
-    icon: Type,
-    label: "Documentary Kinetic Type",
-    desc: "Keyword magnification and emphasis on the words and numbers that matter",
-  },
-  {
-    icon: Clapperboard,
-    label: "Cinematic B-Roll & Footage",
-    desc: "Contextual stock footage, transitions and synchronized sound effects",
-  },
-];
 
 interface ScenesPanelProps {
   scenes: Scene[];
+  planning: ScenePlanningInfo;
+  activeSceneId: string | null;
+  onSelect: (scene: Scene) => void;
+  onPlan: () => void;
+  onClear: () => void;
+  planPending: boolean;
+  clearPending: boolean;
+  plannerConfigured: boolean;
+  transcriptReady: boolean;
 }
 
-/** Visual-scenes inspector: renders real scene rows when the planner writes them,
- * otherwise shows the honest stage-2 roadmap. */
-export default function ScenesPanel({ scenes }: ScenesPanelProps) {
+/** Visual-scenes inspector: the AI's plan, one row per scene. Empty until the
+ * planner runs — no placeholder scenes are ever shown. */
+export default function ScenesPanel({
+  scenes,
+  planning,
+  activeSceneId,
+  onSelect,
+  onPlan,
+  onClear,
+  planPending,
+  clearPending,
+  plannerConfigured,
+  transcriptReady,
+}: ScenesPanelProps) {
+  const typeBreakdown = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const scene of scenes) counts.set(scene.scene_type, (counts.get(scene.scene_type) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [scenes]);
+
+  const busy = planning.status === "queued" || planning.status === "processing";
+
   return (
     <Card data-testid="scenes-panel" className="flex h-full flex-col border-border/80 bg-card">
       <CardHeader className="flex-row items-center justify-between border-b border-border/60 py-3">
@@ -52,53 +57,140 @@ export default function ScenesPanel({ scenes }: ScenesPanelProps) {
           <Clapperboard className="size-3.5 text-primary" />
           Visual scenes
         </CardTitle>
-        <Badge variant="outline" className="font-mono text-[10px] border-amber-500/40 text-amber-300">
-          stage 2
-        </Badge>
-      </CardHeader>
-      <CardContent className="max-h-[340px] flex-1 space-y-2 overflow-y-auto p-3">
         {scenes.length > 0 ? (
-          <ul className="space-y-2" data-testid="scene-list">
-            {scenes.map((scene) => (
-              <li
-                key={scene.id}
-                data-testid={`scene-row-${scene.index}`}
-                className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-heading text-sm text-foreground">
-                    {scene.title ?? TREATMENT_LABELS[scene.treatment ?? ""] ?? `Scene ${scene.index + 1}`}
-                  </span>
-                  <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {formatClock(scene.start_seconds)}–{formatClock(scene.end_seconds)}
-                  </span>
-                </div>
-                {scene.brief ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{scene.brief}</p> : null}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="space-y-2" data-testid="scenes-roadmap">
-            {ROADMAP.map((item) => (
-              <div
-                key={item.label}
-                className="flex gap-3 rounded-lg border border-border/70 bg-timeline/60 px-3 py-2.5"
-                data-testid="scenes-roadmap-item"
-              >
-                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-gold">
-                  <item.icon className="size-3.5" />
-                </span>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{item.label}</p>
-                  <p className="text-xs leading-relaxed text-muted-foreground">{item.desc}</p>
-                </div>
-              </div>
-            ))}
-            <p className="px-1 pt-1 font-mono text-[10px] leading-relaxed tracking-wide text-muted-foreground">
-              The AI scene planner reads the transcript and fills the timeline lane above in
-              stage 2 — the data contract is already live.
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="border-emerald-500/40 font-mono text-[10px] text-emerald-300"
+              data-testid="scene-count-badge"
+            >
+              {scenes.length} scenes
+            </Badge>
+            <Button
+              variant="ghost"
+              size="xs"
+              data-testid="scenes-clear-button"
+              onClick={onClear}
+              disabled={clearPending || busy}
+              className="font-mono text-[10px] text-muted-foreground"
+            >
+              {clearPending ? <Loader2 className="size-3 animate-spin" /> : null}
+              Clear
+            </Button>
+          </div>
+        ) : null}
+      </CardHeader>
+
+      <CardContent className="max-h-[420px] flex-1 space-y-2 overflow-y-auto p-3">
+        {busy ? (
+          <div className="flex h-44 flex-col items-center justify-center gap-3 text-center" data-testid="scenes-planning">
+            <Loader2 className="size-5 animate-spin text-primary" />
+            <div>
+              <p className="text-sm text-foreground">
+                {planning.status === "queued" ? "Queued for analysis…" : "Directing your documentary…"}
+              </p>
+              <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                {planning.model ?? "AI"} is planning visuals for {planning.segments_total} transcript
+                segments
+              </p>
+            </div>
+          </div>
+        ) : planning.status === "failed" ? (
+          <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-4 text-center" data-testid="scenes-failed">
+            <TriangleAlert className="size-5 text-red-400" />
+            <p className="text-sm font-medium text-red-300">Scene planning failed</p>
+            <p className="text-xs leading-relaxed text-muted-foreground" data-testid="scenes-error-text">
+              {planning.error ?? "The AI request failed."}
+            </p>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              no scenes were created
+            </p>
+            <Button variant="outline" size="sm" onClick={onPlan} disabled={planPending} data-testid="scenes-retry-button" className="mt-2">
+              {planPending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+              Try again
+            </Button>
+          </div>
+        ) : scenes.length === 0 ? (
+          <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-5 text-center" data-testid="scenes-empty">
+            <Sparkles className="size-5 text-gold" />
+            <p className="font-heading text-sm text-foreground">No scene plan yet</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {plannerConfigured
+                ? transcriptReady
+                  ? "Run “Analyze & Create Scenes” — the AI reads your transcript and decides what the viewer should see, beat by beat."
+                  : "Waiting for the transcript — scenes are planned from timestamped speech."
+                : "The AI planner is not configured — add GEMINI_API_KEY or EMERGENT_LLM_KEY to backend/.env."}
             </p>
           </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-1.5 pb-1" data-testid="scene-type-breakdown">
+              {typeBreakdown.map(([type, count]) => (
+                <span
+                  key={type}
+                  className={`rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${sceneStyle(type).badge}`}
+                >
+                  {sceneStyle(type).short} {count}
+                </span>
+              ))}
+            </div>
+            <ul className="space-y-2" data-testid="scene-list">
+              {scenes.map((scene) => {
+                const style = sceneStyle(scene.scene_type);
+                const active = scene.id === activeSceneId;
+                return (
+                  <li key={scene.id}>
+                    <button
+                      type="button"
+                      data-testid={`scene-row-${scene.index}`}
+                      onClick={() => onSelect(scene)}
+                      className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors duration-150 ${
+                        active ? "border-gold/70 bg-gold/5" : "border-border/70 bg-timeline/60 hover:border-gold/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${style.badge}`}
+                          data-testid="scene-type-chip"
+                        >
+                          {style.short}
+                        </span>
+                        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {formatClock(scene.start_time)}–{formatClock(scene.end_time)}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-sm leading-snug text-foreground" data-testid="scene-goal-text">
+                        {scene.visual_goal}
+                      </p>
+                      {scene.visual_search_queries.length > 0 ? (
+                        <p className="mt-1 flex items-start gap-1.5 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                          <Search className="mt-0.5 size-2.5 shrink-0" />
+                          <span className="line-clamp-1">{scene.visual_search_queries.join(" · ")}</span>
+                        </p>
+                      ) : null}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        {scene.important_text.slice(0, 3).map((text) => (
+                          <span
+                            key={text}
+                            className="flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-heading text-[11px] font-semibold text-gold"
+                          >
+                            <Type className="size-2.5" />
+                            {text}
+                          </span>
+                        ))}
+                        {scene.sound_effect_suggestion ? (
+                          <span className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+                            <Volume2 className="size-2.5" />
+                            {scene.sound_effect_suggestion}
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </CardContent>
     </Card>

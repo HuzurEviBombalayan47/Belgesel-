@@ -22,17 +22,17 @@ export default function RenderDialog({ open, onOpenChange }: RenderDialogProps) 
         <DialogHeader>
           <DialogTitle className="font-heading">Render video</DialogTitle>
           <DialogDescription>
-            Stage 1 wires the render-job API and the timeline it will consume. The
-            compositor itself ships in stage 2 — nothing is rendered yet, and the app will
-            never claim otherwise.
+            Your AI scene plan is the input the renderer will consume. Asset resolution
+            (stage 3) and the compositor (stage 4) are not built yet — nothing is
+            rendered, and the app will never claim otherwise.
           </DialogDescription>
         </DialogHeader>
         <ul className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           {[
+            "Real image & footage search",
             "Ken Burns photo moves",
             "Maps & chart graphics",
             "Kinetic typography",
-            "Stock footage & archival media",
             "Transitions & SFX",
             "1080p / 720p profiles",
           ].map((item) => (
@@ -44,7 +44,7 @@ export default function RenderDialog({ open, onOpenChange }: RenderDialogProps) 
         </ul>
         <DialogFooter className="items-center gap-3">
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            available in stage 2
+            available in a later stage
           </span>
           <Button variant="secondary" size="sm" data-testid="render-confirm-button" disabled>
             Start render

@@ -1,0 +1,70 @@
+{
+  "iteration": 3,
+  "mode": "retest",
+  "summary": "Stage-2 AI Scene Planner retest. Re-ran the full existing backend suite (extended with 2 new scene-planning test files + 1 extended assertion) - 21/21 backend tests pass. Re-ran all 8 pre-existing browser checks by name (all pass; audio-playback-controls-timecode flaked once on a 1-frame race then passed on rerun - classified flaky, not a bug) plus rewrote the now-obsolete 'scenes-lane-empty-with-roadmap' check (the old stage-1 roadmap-items UI was replaced by the Analyze & Create Scenes button, per spec) and added 4 new browser checks for the scene planner UI. Regenerated /tmp/big-narration.wav which had been wiped from /tmp. No app bugs found; the AI-budget-exhausted honest-failure behaviour is confirmed working exactly as required.",
+  "passed": 8,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    "Regenerated missing /tmp/big-narration.wav fixture (was wiped) so the large-file backend tests could run - infra housekeeping, not an app bug."
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Scene API returns the full structured plan for every scene",
+      "name": "test_scenes_endpoint_returns_full_structured_plan / test_project_scene_planning_subdocument_reflects_seeded_state",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/projects/{seeded id}/scenes -> 200, 8 scenes, each with all 16 required fields (start_time..asset_ids), scene_type in allowed set, asset_ids==[]; CHART scene has visual_search_queries==[]. GET /api/projects/{seeded id} -> scene_planning.status='ready', scene_count=8, model='SEEDED (not AI)'."
+    },
+    {
+      "criterion": "Scenes render on the timeline lane and are visually differentiated by type",
+      "name": "scenes-timeline-and-list-render-8-types",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Navigated to /projects/{seeded id}: timeline-lane-scenes shows scene-block-0..7 all visible; scene-count-badge=='8 scenes'; scene-type-breakdown visible; scene-row-0..7 visible in the scenes list panel. Screenshot: scenes-timeline-and-list-render-8-types-scenes-lane-and-list-8-scenes.png."
+    },
+    {
+      "criterion": "Each scene can be inspected and shows its entire visual plan",
+      "name": "scene-inspector-shows-full-plan-and-plays",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Clicking scene-block-0 opened scene-inspector with type/time/goal/transcript/queries/treatment/important-text/sfx/animation/transition all visible. Clicking scene-row-2 (CHART) showed scene-inspector-type containing 'chart' and scene-inspector-queries text 'generated, not searched'. scene-inspector-play-button moved timecode-readout off 00:00:00:00. 3 screenshots captured."
+    },
+    {
+      "criterion": "'Analyze & Create Scenes' is wired, guarded, and never fabricates scenes on failure",
+      "name": "test_replanning_real_project_ends_in_honest_failure_with_zero_scenes / scenes-failed-state-shows-error-banner",
+      "lane": "backend+browser",
+      "status": "passed",
+      "evidence": "Backend: POST /api/projects/{ElevenLabs id}/scenes/plan -> 202; polled until scene_planning.status=='failed' with non-empty error, scene_count==0; GET .../scenes==[]. Browser: /projects/{ElevenLabs id} shows scene-planning-error-banner, scenes-failed panel, non-empty scenes-error-text, scenes-lane-failed in the timeline, and analyze-create-scenes-button still present to retry."
+    },
+    {
+      "criterion": "Planning endpoint guards wrong states with correct status codes",
+      "name": "test_plan_returns_409_when_transcription_not_ready / test_plan_returns_404_for_unknown_project / test_delete_scenes_returns_404_for_unknown_project",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Uploaded /tmp/speech23.wav and fired POST .../scenes/plan immediately -> 409 with non-empty detail (transcription not ready yet). POST .../scenes/plan on a random uuid -> 404. DELETE .../scenes on a random uuid -> 404."
+    },
+    {
+      "criterion": "DELETE clears a plan so it can be re-run",
+      "name": "test_delete_clears_plan_then_restores_seeded_project",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "DELETE /api/projects/{seeded id}/scenes -> 200 {ok:true, deleted:8}; follow-up GET .../scenes==[] and scene_planning.status=='idle'. Test restores the seeded plan in a finally-block via `python tools_seed_demo_scenes.py <id>` and re-asserts 8 scenes afterwards; confirmed intact post-suite via a separate curl (8 scenes present)."
+    },
+    {
+      "criterion": "FIXED BUG: a long transcript never shows a false 'No speech detected'",
+      "name": "large-transcript-no-false-empty-state",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Navigated to /projects/{ElevenLabs id, 112 segments} and polled every 150ms from first paint: transcript-empty was never visible; transcript-loading/transcript-list path resolved cleanly to transcript-list with transcript-count-badge=='112 segments' and matching transcript-segment- rows inside timeline-lane-transcript."
+    },
+    {
+      "criterion": "No regressions in stage-1 behaviour",
+      "name": "test_system_status_reports_r2_and_whisper (extended) / upload+stream/render backend tests / audio-playback-controls-timecode / render-dialog-disabled-stage2 / timeline-lanes-scrub-and-zoom / transcript-segments-display-and-seek / upload-audio-creates-project*",
+      "lane": "backend+browser",
+      "status": "passed",
+      "evidence": "GET /api/system/status now also asserts scene_planning.configured==true and model=='gemini-2.5-flash' (alongside storage.provider=='cloudflare_r2' and transcription.model=='whisper-1'). Full backend suite 21/21 green. All 7 pre-existing browser checks re-ran green (audio-playback-controls-timecode flaked once on a single-frame timing race, passed clean on immediate rerun - classified flaky)."
+    }
+  ]
+}

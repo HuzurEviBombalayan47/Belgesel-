@@ -47,12 +47,31 @@ class TranscriptionInfo(BaseModel):
         return as_utc(value)
 
 
+class ScenePlanningInfo(BaseModel):
+    """State of the AI scene-planning pass over this project's transcript."""
+
+    status: Literal["idle", "queued", "processing", "ready", "failed"] = "idle"
+    error: str | None = None
+    scene_count: int = 0
+    model: str | None = None
+    # progress over the transcript, so the UI can show honest movement on long files
+    segments_planned: int = 0
+    segments_total: int = 0
+    completed_at: datetime | None = None
+
+    @field_validator("completed_at", mode="after")
+    @classmethod
+    def _aware(cls, value: datetime | None) -> datetime | None:
+        return as_utc(value)
+
+
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     status: Literal["ready", "failed"] = "ready"
     audio: AudioAsset
     transcription: TranscriptionInfo = Field(default_factory=TranscriptionInfo)
+    scene_planning: ScenePlanningInfo = Field(default_factory=ScenePlanningInfo)
     error: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -73,6 +92,8 @@ class ProjectSummary(BaseModel):
     duration_seconds: float | None
     transcription_status: str
     segment_count: int
+    scene_planning_status: str
+    scene_count: int
     created_at: datetime
 
     @field_validator("created_at", mode="after")
@@ -92,5 +113,7 @@ class ProjectSummary(BaseModel):
             duration_seconds=project.audio.duration_seconds,
             transcription_status=project.transcription.status,
             segment_count=project.transcription.segment_count,
+            scene_planning_status=project.scene_planning.status,
+            scene_count=project.scene_planning.scene_count,
             created_at=project.created_at,
         )

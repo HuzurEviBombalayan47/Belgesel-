@@ -62,6 +62,18 @@ export default function ProjectCard({ project }: { project: ProjectSummary }) {
             {transcription.label}
           </span>
         </div>
+        {project.scene_count > 0 ? (
+          <span
+            className={badgeVariants({
+              variant: "outline",
+              className:
+                "mt-2 w-fit border-gold/40 font-mono text-[10px] uppercase tracking-wider text-amber-200",
+            })}
+            data-testid="project-scene-badge"
+          >
+            {project.scene_count} scenes planned
+          </span>
+        ) : null}
       </CardHeader>
       <CardContent className="flex-1 pb-4">
         <dl className="grid grid-cols-3 gap-2 font-mono text-xs text-muted-foreground">

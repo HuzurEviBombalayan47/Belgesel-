@@ -31,6 +31,7 @@ export interface Project {
   status: ProjectStatus;
   audio: AudioAsset;
   transcription: TranscriptionInfo;
+  scene_planning: ScenePlanningInfo;
   error: string | null;
   created_at: string;
   updated_at: string;
@@ -46,17 +47,35 @@ export interface ProjectSummary {
   duration_seconds: number | null;
   transcription_status: string;
   segment_count: number;
+  scene_planning_status: string;
+  scene_count: number;
   created_at: string;
 }
 
-export type SceneTreatment =
-  | "ken_burns"
-  | "map"
-  | "chart"
-  | "motion_typography"
-  | "stock_footage"
-  | "archival_photo"
-  | "title_card";
+export type SceneType =
+  | "PHOTO"
+  | "VIDEO"
+  | "HISTORICAL_IMAGE"
+  | "DOCUMENT"
+  | "MAP"
+  | "CHART"
+  | "TEXT_ANIMATION"
+  | "MOTION_GRAPHIC"
+  | "LOGO"
+  | "SCREENSHOT"
+  | "MIXED";
+
+export type ScenePlanningState = "idle" | "queued" | "processing" | "ready" | "failed";
+
+export interface ScenePlanningInfo {
+  status: ScenePlanningState;
+  error: string | null;
+  scene_count: number;
+  model: string | null;
+  segments_planned: number;
+  segments_total: number;
+  completed_at: string | null;
+}
 
 export interface TranscriptSegment {
   id: string;
@@ -69,17 +88,25 @@ export interface TranscriptSegment {
   confidence: number | null;
 }
 
+/** One planned visual beat — the structured plan stage 3 will bind real assets to. */
 export interface Scene {
   id: string;
   project_id: string;
   index: number;
-  start_seconds: number;
-  end_seconds: number;
-  title: string | null;
-  treatment: SceneTreatment | null;
-  brief: string | null;
-  status: "planned" | "awaiting_assets" | "ready";
+  start_time: number;
+  end_time: number;
+  transcript_text: string;
+  scene_type: SceneType;
+  visual_goal: string;
+  visual_search_queries: string[];
+  suggested_visual_treatment: string;
+  important_text: string[];
+  animation_type: string;
+  transition_type: string;
+  sound_effect_suggestion: string | null;
+  status: string;
   asset_ids: string[];
+  created_at: string;
 }
 
 export interface RenderOutput {
@@ -104,7 +131,7 @@ export interface SystemStatus {
   version: string;
   storage: { provider: string; configured: boolean; bucket: string | null };
   transcription: { configured: boolean; model: string | null };
-  scene_planning: { enabled: boolean; stage: number };
+  scene_planning: { configured: boolean; model: string | null };
   rendering: { enabled: boolean; stage: number };
   max_upload_bytes: number;
 }

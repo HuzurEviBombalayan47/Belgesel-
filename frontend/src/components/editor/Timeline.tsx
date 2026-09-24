@@ -1,6 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Loader2, ZoomIn, ZoomOut } from "lucide-react";
 import { formatClock } from "@/lib/format";
+import { sceneStyle } from "@/lib/sceneStyles";
 import type { Scene, TranscriptSegment } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +16,10 @@ interface TimelineProps {
   segments: TranscriptSegment[];
   scenes: Scene[];
   transcriptState: string;
+  scenePlanningState: string;
+  activeSceneId: string | null;
   onSeek: (t: number) => void;
+  onSelectScene: (scene: Scene) => void;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -63,24 +67,65 @@ const TranscriptBlock = memo(function TranscriptBlock({
   );
 });
 
-const SceneBlock = memo(function SceneBlock({ scene, pps }: { scene: Scene; pps: number }) {
+const SceneBlock = memo(function SceneBlock({
+  scene,
+  pps,
+  active,
+  onSelect,
+}: {
+  scene: Scene;
+  pps: number;
+  active: boolean;
+  onSelect: (scene: Scene) => void;
+}) {
+  const style = sceneStyle(scene.scene_type);
+  const width = Math.max(3, (scene.end_time - scene.start_time) * pps);
   return (
-    <div
+    <button
+      type="button"
       data-testid={`scene-block-${scene.index}`}
-      title={scene.title ?? scene.treatment ?? "scene"}
-      className="absolute top-2 bottom-2 overflow-hidden rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1"
-      style={{ left: scene.start_seconds * pps, width: Math.max(2, (scene.end_seconds - scene.start_seconds) * pps) }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect(scene);
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+      title={`${style.label} · ${scene.visual_goal}`}
+      className={`absolute top-2 bottom-2 overflow-hidden rounded-md border px-1.5 py-1 text-left transition-colors duration-150 ${style.block} ${
+        active ? "ring-2 ring-gold ring-offset-1 ring-offset-timeline" : ""
+      }`}
+      style={{ left: scene.start_time * pps, width }}
     >
-      <span className="block truncate text-[11px] leading-4 text-emerald-100">
-        {scene.title ?? scene.treatment ?? `Scene ${scene.index + 1}`}
+      <span className="pointer-events-none block font-mono text-[9px] uppercase leading-3 tracking-wider opacity-80">
+        {style.short}
       </span>
-    </div>
+      {width > 60 ? (
+        <span className="pointer-events-none mt-0.5 block truncate text-[10px] leading-3 text-foreground/90">
+          {scene.visual_goal}
+        </span>
+      ) : null}
+      {width > 110 && scene.important_text.length > 0 ? (
+        <span className="pointer-events-none mt-0.5 block truncate font-heading text-[10px] font-semibold text-gold">
+          {scene.important_text.slice(0, 2).join(" · ")}
+        </span>
+      ) : null}
+    </button>
   );
 });
 
 /** Multi-lane NLE timeline: ruler + playhead, scenes lane, transcript lane, waveform.
  * Click or drag anywhere to scrub; the playhead follows the audio engine via rAF. */
-export default function Timeline({ duration, currentTime, peaks, segments, scenes, transcriptState, onSeek }: TimelineProps) {
+export default function Timeline({
+  duration,
+  currentTime,
+  peaks,
+  segments,
+  scenes,
+  transcriptState,
+  scenePlanningState,
+  activeSceneId,
+  onSeek,
+  onSelectScene,
+}: TimelineProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -212,9 +257,44 @@ export default function Timeline({ duration, currentTime, peaks, segments, scene
     [segments, pps, onSeek],
   );
   const sceneBlocks = useMemo(
-    () => scenes.map((scene) => <SceneBlock key={scene.id} scene={scene} pps={pps} />),
-    [scenes, pps],
+    () =>
+      scenes.map((scene) => (
+        <SceneBlock
+          key={scene.id}
+          scene={scene}
+          pps={pps}
+          active={scene.id === activeSceneId}
+          onSelect={onSelectScene}
+        />
+      )),
+    [scenes, pps, activeSceneId, onSelectScene],
   );
+
+  const scenesLane = () => {
+    if (scenes.length > 0) return <>{sceneBlocks}</>;
+    if (scenePlanningState === "queued" || scenePlanningState === "processing") {
+      return (
+        <div
+          className="absolute inset-x-2 top-2 bottom-2 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3"
+          data-testid="scenes-lane-planning"
+        >
+          <Loader2 className="size-3.5 animate-spin text-amber-300" />
+          <span className="font-mono text-[11px] tracking-wide text-amber-200">
+            AI is planning your visual scenes…
+          </span>
+        </div>
+      );
+    }
+    if (scenePlanningState === "failed") {
+      return <EmptyLane testid="scenes-lane-failed" text="Scene planning failed — see the scenes panel" />;
+    }
+    return (
+      <EmptyLane
+        testid="scenes-lane-empty"
+        text="Run “Analyze & Create Scenes” to fill this lane with the AI's visual plan"
+      />
+    );
+  };
 
   const transcriptLane = () => {
     if (transcriptState === "pending" || transcriptState === "processing") {
@@ -315,14 +395,7 @@ export default function Timeline({ duration, currentTime, peaks, segments, scene
               scenes
             </div>
             <div className="relative h-16 flex-1" data-testid="timeline-lane-scenes" style={{ width: contentW }}>
-              {scenes.length > 0 ? (
-                sceneBlocks
-              ) : (
-                <EmptyLane
-                  testid="scenes-lane-empty"
-                  text="Visual scenes are planned here by the AI scene planner (stage 2)"
-                />
-              )}
+              {scenesLane()}
             </div>
           </div>
 

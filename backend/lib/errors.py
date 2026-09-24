@@ -18,3 +18,8 @@ class FeatureDisabled(Exception):
 
 class StorageNotConfigured(RuntimeError):
     """Cloudflare R2 credentials/bucket are missing from the environment."""
+
+
+class ScenePlanningError(RuntimeError):
+    """The AI scene planner failed or returned unusable output. Surfaced to the client
+    as an explicit error — never swapped for placeholder scenes."""

@@ -20,6 +20,9 @@ def test_system_status_reports_r2_and_whisper(client: httpx.Client):
     assert body["transcription"]["configured"] is True, body["transcription"]
     assert body["transcription"]["model"] == "whisper-1", body["transcription"]
 
+    assert body["scene_planning"]["configured"] is True, body["scene_planning"]
+    assert body["scene_planning"]["model"] == "gemini-2.5-flash", body["scene_planning"]
+
 
 def test_storage_module_has_no_local_disk_fallback():
     source = (BACKEND_DIR / "lib" / "storage.py").read_text()

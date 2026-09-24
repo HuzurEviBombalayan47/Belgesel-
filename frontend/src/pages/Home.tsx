@@ -16,8 +16,8 @@ const HERO_IMAGE =
 const CAPABILITIES = [
   "WHISPER TRANSCRIPT · TIMESTAMPS",
   "R2 OBJECT STORAGE",
+  "AI SCENE PLANNING",
   "MULTI-LANE TIMELINE",
-  "STAGE-2 RENDER SEAM",
 ];
 
 export default function Home() {
@@ -46,7 +46,7 @@ export default function Home() {
         />
         <div className="relative mx-auto w-full max-w-[1400px] px-4 py-14 sm:px-6 lg:py-20">
           <p className="font-mono text-[11px] tracking-[0.28em] text-gold" data-testid="hero-eyebrow">
-            STAGE 1 · FOUNDATION BUILD
+            STAGE 2 · AI SCENE PLANNING
           </p>
           <h1
             className="mt-4 max-w-2xl font-heading text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl"
@@ -58,8 +58,8 @@ export default function Home() {
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-300" data-testid="hero-copy">
             Upload a narration — Chronicle stores it in your Cloudflare R2 bucket, transcribes
-            the speech with timestamps, and lays out a broadcast-style multi-lane timeline.
-            The render engine stays warm for stage 2.
+            the speech with timestamps, then an AI visual director plans every scene: archival
+            photos, maps, charts, kinetic type, the words worth emphasising.
           </p>
           <ul className="mt-7 flex flex-wrap gap-2" data-testid="hero-capabilities">
             {CAPABILITIES.map((item) => (
@@ -142,7 +142,7 @@ export default function Home() {
 
       <footer className="border-t border-border/70 py-6" data-testid="footer-note">
         <p className="mx-auto max-w-[1400px] px-4 font-mono text-[10px] tracking-[0.18em] text-muted-foreground sm:px-6">
-          CHRONICLE AI · FOUNDATION BUILD — SCENE PLANNING, ASSET SEARCH & RENDERING ARRIVE IN STAGE 2
+          CHRONICLE AI · AUDIO → TRANSCRIPT → AI SCENE PLAN — ASSET SEARCH & RENDERING ARRIVE NEXT
         </p>
       </footer>
     </div>

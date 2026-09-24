@@ -1,100 +1,100 @@
 # Chronicle AI — Documentary Video Studio (living spec)
 
-Stage 1 = **foundation**. One audio upload becomes a project with a professional
-documentary-style, multi-lane timeline. AI scene planning, asset search, animation,
-SFX and rendering are architectural seams, not implementations.
+**Stage 1 (done):** audio upload → Cloudflare R2 → real Whisper transcript with
+timestamps → multi-lane documentary timeline.
+**Stage 2 (this build):** an AI Scene Planner turns the transcript into structured
+visual scene plans that appear on the timeline and in an inspector.
+**Stage 3 (next):** resolve each scene's `visual_search_queries` into real internet
+assets. **Stage 4:** timeline rendering/compositing.
 
 ## What the app does today
 
-1. User uploads ONE audio file (drag/drop or browse) on `/`.
-2. The browser decodes the real samples into a 2000-point peak envelope (waveform)
-   and reports the decoded duration.
-3. Backend validates type/size, spools to a temp file, probes the real duration with
-   `mutagen`, uploads the original bytes to **Cloudflare R2**, and inserts the project.
-4. Whisper (`whisper-1`, via `EMERGENT_LLM_KEY`) transcribes in a background task →
-   timestamped `transcript_segments` rows. The editor polls until ready.
-5. `/projects/:id` is the editor: transport (play/pause, ±5s, SMPTE timecode),
-   zoomable multi-lane timeline (ruler, playhead, scenes lane, transcript lane,
-   waveform lane), transcript inspector with clickable timestamps, scenes roadmap
-   panel, and a **Render video** button that honestly reports stage 2.
+1. User uploads ONE audio file on `/`; the browser decodes real samples into a
+   2000-point waveform and reports decoded duration.
+2. Backend validates, probes real duration (`mutagen`), stores the original bytes in
+   **Cloudflare R2** (single PUT ≤32 MB, managed multipart above), inserts the project.
+3. Whisper (`whisper-1`) transcribes in a background task → timestamped
+   `transcript_segments`. Oversized WAVs are downmixed to 16 kHz mono and chunked, with
+   chunk timestamps offset back onto the real timeline.
+4. **"Analyze & Create Scenes"** runs the AI Scene Planner over the transcript →
+   `scenes` rows → coloured blocks on the timeline's scenes lane + a scene list, each
+   openable in a full inspector.
+5. **Render video** is honest: asset search and the compositor are later stages, so
+   `POST /renders` answers 501 and the dialog says so.
 
 ## Data model (MongoDB)
 
 | collection | shape | notes |
 |---|---|---|
-| `projects` | `models/projects.py::Project` | `audio` sub-doc holds `object_key`, `duration_seconds`, `waveform`; `transcription` holds status/error/segment_count/language/model |
-| `transcript_segments` | `models/timeline.py::TranscriptSegment` | `project_id`, `index`, `start_seconds`, `end_seconds`, `text` |
-| `scenes` | `models/timeline.py::Scene` | written by the stage-2 scene planner; `treatment` ∈ ken_burns/archival_photo/map/chart/motion_typography/stock_footage/title_card |
-| `render_jobs` | `models/renders.py::RenderJob` | written by the stage-2 render pipeline |
+| `projects` | `models/projects.py::Project` | `audio`, `transcription`, **`scene_planning`** (status/error/scene_count/model/progress) |
+| `transcript_segments` | `TranscriptSegment` | `project_id`, `index`, `start_seconds`, `end_seconds`, `text` |
+| `scenes` | `models/timeline.py::Scene` | the structured visual plan — see below |
+| `render_jobs` | `models/renders.py::RenderJob` | written by a later stage |
 
-Ids are string uuid4. Datetimes stored aware-UTC, normalised on read.
+### Scene (the stage-3 contract)
+
+`start_time`, `end_time`, `transcript_text`, `scene_type`, `visual_goal`,
+`visual_search_queries[]`, `suggested_visual_treatment`, `important_text[]`,
+`animation_type`, `transition_type`, `sound_effect_suggestion`, plus `id`,
+`project_id`, `index`, `status`, `asset_ids[]` (empty — no assets are fetched yet).
+
+`scene_type` ∈ PHOTO · VIDEO · HISTORICAL_IMAGE · DOCUMENT · MAP · CHART ·
+TEXT_ANIMATION · MOTION_GRAPHIC · LOGO · SCREENSHOT · MIXED.
 
 ## API (all on `api_router`, prefix `/api`)
 
-- `GET  /system/status` → storage configured?, transcription configured?, upload limit
-- `POST /projects` (multipart: `file`, optional `title`, `peaks`, `client_duration`) → 201 Project
-- `GET  /projects` → ProjectSummary[]
-- `GET  /projects/{id}` → Project (404 if unknown)
-- `DELETE /projects/{id}` → removes R2 object + all child rows
-- `POST /projects/{id}/analyze` → re-run transcription (downloads audio back from R2)
-- `GET  /projects/{id}/audio` → range-aware audio stream (206 on Range)
+- `GET  /system/status` → storage / transcription / **scene_planning** capability + model
+- `POST /projects` (multipart `file`, optional `title`, `peaks`, `client_duration`) → 201
+- `GET  /projects` · `GET /projects/{id}` · `DELETE /projects/{id}`
+- `POST /projects/{id}/analyze` → re-run transcription (re-downloads audio from R2)
+- `GET  /projects/{id}/audio` → range-aware stream (206 on Range)
 - `GET  /projects/{id}/transcript` → TranscriptSegment[]
-- `GET  /projects/{id}/scenes` → Scene[] (empty in stage 1)
-- `POST /projects/{id}/renders` → **501** FeatureDisabled (honest; never a fake success)
-- `GET  /projects/{id}/renders` → RenderJob[]
+- `GET  /projects/{id}/scenes` → Scene[]
+- **`POST /projects/{id}/scenes/plan`** → 202, starts the AI pass (409 if the transcript
+  isn't ready or a pass is already running; 424 if no AI key is configured)
+- **`DELETE /projects/{id}/scenes`** → discard the plan so it can be re-run
+- `POST /projects/{id}/renders` → 501 (later stage) · `GET .../renders` → RenderJob[]
 
-Error contract: 415 unsupported type, 413 too large, 404 unknown project,
-410 object missing in storage, 501 disabled seam, **424 storage failure or storage not
-configured** (deliberately not 502/503 — the platform ingress replaces gateway-class
-response bodies with its own error page, which hides the real message from the UI).
+Error contract: 415 unsupported type, 413 too large, 404 unknown project, 409 wrong
+state, 410 object missing in storage, 501 not-yet-built stage, **424 dependency failure
+or missing configuration** (deliberately not 502/503 — the ingress replaces
+gateway-class bodies with its own page, hiding the real message).
 
-## Upload internals (large files)
+## AI Scene Planner (`services/scene_planner.py`)
 
-- `lib/storage.py` uploads ≤32 MB as a single `put_object` and larger files through
-  boto3's managed **multipart** transfer (`TransferConfig`, 16 MB parts). A plain
-  `upload_file` on an endpoint without multipart support raised `KeyError: 'UploadId'`
-  — the original cause of the reported 502.
-- Botocore failures are translated by `describe_storage_error()` into actionable
-  sentences (bad access key, signature mismatch, missing bucket, unreachable endpoint,
-  non-compliant S3 response) and returned as the `detail` of a 424.
-- `lib/audio_prep.py` keeps **real** transcription working past the API's 25 MB cap:
-  an oversized WAV is downmixed to 16 kHz mono and, if still too large, split into
-  sequential chunks whose segment timestamps are offset back onto the original
-  timeline. Compressed formats over the cap fail with an explicit message (no
-  in-pod decoder). Verified: a 48 MB / 26-minute WAV produced 221 segments spanning
-  the full 1579 s.
+- Provider/model from env: `SCENE_PLANNER_PROVIDER` (default `gemini`),
+  `SCENE_PLANNER_MODEL` (default `gemini-2.5-flash`).
+- Key precedence: **`GEMINI_API_KEY`** (user's own Google key, used directly) →
+  `EMERGENT_LLM_KEY`. Keys live only in `backend/.env`, never reach the frontend.
+- The transcript is planned in windows of 18 segments with concurrency 3; windows are
+  merged in order, de-overlapped and re-indexed.
+- Every scene is validated against the Pydantic model. Generic search queries
+  ("cinematic background", "corporate b-roll", …) are stripped, and a scene lacking a
+  goal or treatment is dropped rather than padded.
+- Any total failure raises `ScenePlanningError`, recorded on
+  `project.scene_planning` as `failed` + the actual provider message. **No placeholder
+  or fabricated scenes are ever written.**
+- Runs as a background task; the editor polls `scene_planning` for progress.
 
-## Architecture seams for stage 2
+## Configuration
 
-- `services/transcription.py` — real Whisper impl behind a `TranscriptionService`
-  Protocol. >24 MB raises `AudioTooLargeForTranscription` (chunking = stage 2).
-- `services/scene_planner.py` — `ScenePlanner` Protocol; stage 1 registers
-  `DisabledScenePlanner` which raises `FeatureDisabled`. Stage 2 implements `plan()`
-  → writes `scenes` rows; the timeline lane already renders them.
-- `rendering/pipeline.py` — `RenderEngine` Protocol; stage 1 registers
-  `DisabledRenderEngine`. Stage 2 adds the compositor (Ken Burns, maps, charts,
-  kinetic type, transitions, SFX) behind the same `submit()` signature.
-- `lib/storage.py` — R2-only object storage (S3 API, path-style, boto3 in threads).
-  **No local-disk fallback by design**; missing keys → `StorageNotConfigured` → 503.
-  `presigned_get()` is ready for direct-CDN playback later.
+`backend/.env`: `MONGO_URL`, `DB_NAME`, `CORS_ORIGINS`, `MAX_UPLOAD_MB`,
+`EMERGENT_LLM_KEY`, optional `GEMINI_API_KEY`, `SCENE_PLANNER_MODEL/PROVIDER`,
+and R2: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`,
+optional `R2_ENDPOINT_URL`.
 
-## Storage configuration
-
-`backend/.env`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-`R2_BUCKET`, optional `R2_ENDPOINT_URL`.
-
-> **Current state:** the user has not supplied real R2 keys yet, so `.env` points
-> `R2_ENDPOINT_URL` at a local S3-compatible stub (`/tmp/s3stub.py`, port 9000) purely
-> so the R2 code path could be verified end-to-end. Swapping in real Cloudflare keys and
-> deleting `R2_ENDPOINT_URL` is the only change needed — no code edits.
-
-## Verified (stage 1 gate, through the public URL)
-
-upload → R2 write → duration probe → Whisper transcript with timestamps → poll to
-`ready` → range-aware playback (206) → timeline/transcript render → 415/404/501
-negative cases.
+> **Current state (2 open items):**
+> 1. The user supplied an R2 access key + secret but not the Account ID or bucket name,
+>    so `R2_ENDPOINT_URL` still points at the local S3-compatible endpoint
+>    (`tools_local_s3_stub.py`, supervisor program `localstoragestub`, objects under
+>    `/app/.local-object-store`). It implements multipart exactly like R2; swapping in
+>    the real account id + bucket needs no code change.
+> 2. The Emergent universal key's budget is exhausted (429 `budget_exceeded`), so the
+>    planner cannot execute until the user pastes a `GEMINI_API_KEY` or tops up credits.
+>    The failure path is verified: explicit error, zero scenes.
 
 ## Not implemented (deliberately)
 
-AI scene planning, asset search/ingest, animations, SFX, video rendering/export.
-No demo/seed projects — the app shows real user data only.
+Asset search/download, animations, SFX, video rendering/export. No demo/seed projects.
+`tools_seed_demo_scenes.py` is a verification-only tool (clearly-labelled seeded rows,
+never presented as AI output) — not imported by the app.

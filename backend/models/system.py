@@ -14,11 +14,16 @@ class TranscriptionStatus(BaseModel):
     model: str | None = None
 
 
+class ScenePlanningStatus(BaseModel):
+    configured: bool
+    model: str | None = None
+
+
 class SystemStatus(BaseModel):
     app: str = "Chronicle AI"
-    version: str = "0.1.0"
+    version: str = "0.2.0"
     storage: StorageStatus
     transcription: TranscriptionStatus
-    scene_planning: dict = {"enabled": False, "stage": 2}
-    rendering: dict = {"enabled": False, "stage": 2}
+    scene_planning: ScenePlanningStatus
+    rendering: dict = {"enabled": False, "stage": 3}
     max_upload_bytes: int

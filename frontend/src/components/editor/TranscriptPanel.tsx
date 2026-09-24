@@ -36,6 +36,7 @@ interface TranscriptPanelProps {
   state: string;
   segments: TranscriptSegment[];
   activeIndex: number | null;
+  loading: boolean;
   onSeek: (t: number) => void;
   onRetry: () => void;
   retrying: boolean;
@@ -43,7 +44,7 @@ interface TranscriptPanelProps {
 }
 
 /** Transcript inspector — real Whisper segments with clickable timestamps. */
-export default function TranscriptPanel({ state, segments, activeIndex, onSeek, onRetry, retrying, errorText }: TranscriptPanelProps) {
+export default function TranscriptPanel({ state, segments, activeIndex, loading, onSeek, onRetry, retrying, errorText }: TranscriptPanelProps) {
   const activeRow = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -105,9 +106,18 @@ export default function TranscriptPanel({ state, segments, activeIndex, onSeek, 
             </p>
           </div>
         ) : segments.length === 0 ? (
-          <div className="flex h-40 items-center justify-center px-6 text-center" data-testid="transcript-empty">
-            <p className="text-sm text-muted-foreground">No speech detected in this narration.</p>
-          </div>
+          loading ? (
+            // Segments are still on the wire — never claim "no speech" mid-fetch.
+            <div className="space-y-2 p-1" data-testid="transcript-loading">
+              {[0, 1, 2, 3].map((key) => (
+                <div key={key} className="h-9 animate-pulse rounded-lg bg-muted/60" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-40 items-center justify-center px-6 text-center" data-testid="transcript-empty">
+              <p className="text-sm text-muted-foreground">No speech detected in this narration.</p>
+            </div>
+          )
         ) : (
           <div className="space-y-1" data-testid="transcript-list">
             {segments.map((segment, index) =>

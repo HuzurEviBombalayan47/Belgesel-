@@ -20,14 +20,65 @@ import tempfile
 from typing import Iterator
 
 import boto3
+from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError, EndpointConnectionError
 
 from lib.errors import StorageNotConfigured
+
+
+class StorageUploadError(RuntimeError):
+    """An upload to object storage failed. Carries a human-readable reason so the API
+    can surface the ACTUAL cause instead of a bare 502."""
+
+
+# Files at or below this size go up as a single PUT; larger ones use managed multipart.
+_MULTIPART_THRESHOLD = 32 * 1024 * 1024
+_TRANSFER_CONFIG = TransferConfig(
+    multipart_threshold=_MULTIPART_THRESHOLD,
+    multipart_chunksize=16 * 1024 * 1024,
+    max_concurrency=4,
+    use_threads=True,
+)
 
 
 def _env(name: str) -> str | None:
     value = os.environ.get(name, "").strip()
     return value or None
+
+
+def describe_storage_error(exc: BaseException) -> str:
+    """Turn a botocore failure into an operator-readable sentence."""
+    if isinstance(exc, EndpointConnectionError):
+        return (
+            "could not reach the object-storage endpoint — check R2_ENDPOINT_URL / "
+            "R2_ACCOUNT_ID and that the bucket host is reachable"
+        )
+    if isinstance(exc, ClientError):
+        error = exc.response.get("Error", {}) if hasattr(exc, "response") else {}
+        code = str(error.get("Code", "")) or "UnknownError"
+        message = str(error.get("Message", "")).strip()
+        status = (exc.response or {}).get("ResponseMetadata", {}).get("HTTPStatusCode")
+        hints = {
+            "InvalidAccessKeyId": "R2_ACCESS_KEY_ID is not recognised by this account",
+            "SignatureDoesNotMatch": "R2_SECRET_ACCESS_KEY does not match the access key",
+            "AccessDenied": "the R2 API token lacks Object Read & Write on this bucket",
+            "NoSuchBucket": "R2_BUCKET does not exist in this account",
+            "PermanentRedirect": "the endpoint does not match the bucket's account — check R2_ACCOUNT_ID",
+        }
+        parts = [f"storage rejected the request ({code}"]
+        parts.append(f", HTTP {status})" if status else ")")
+        detail = hints.get(code) or message
+        return "".join(parts) + (f": {detail}" if detail else "")
+    if isinstance(exc, KeyError):
+        # e.g. a partial/non-compliant S3 implementation omitting UploadId on multipart init
+        return (
+            f"the storage endpoint returned an incomplete S3 response (missing {exc}) — "
+            "it may not support multipart uploads"
+        )
+    if isinstance(exc, BotoCoreError):
+        return f"object-storage client error: {exc}"
+    return f"{type(exc).__name__}: {exc}"
 
 
 class R2Storage:
@@ -60,14 +111,31 @@ class R2Storage:
         )
 
     # ---- writes -------------------------------------------------------------
+    def _upload_sync(self, path: str, key: str, content_type: str) -> None:
+        size = os.path.getsize(path)
+        try:
+            if size <= _MULTIPART_THRESHOLD:
+                # Single PUT — the common case for narration files. Avoids multipart
+                # entirely, which is both faster and far more portable across
+                # S3-compatible endpoints.
+                with open(path, "rb") as handle:
+                    self._client.put_object(
+                        Bucket=self.bucket, Key=key, Body=handle, ContentType=content_type
+                    )
+            else:
+                # Large file: managed multipart transfer (Cloudflare R2 supports it).
+                self._client.upload_file(
+                    Filename=path,
+                    Bucket=self.bucket,
+                    Key=key,
+                    ExtraArgs={"ContentType": content_type},
+                    Config=_TRANSFER_CONFIG,
+                )
+        except Exception as exc:
+            raise StorageUploadError(describe_storage_error(exc)) from exc
+
     async def upload_file(self, path: str, key: str, content_type: str) -> None:
-        await asyncio.to_thread(
-            self._client.upload_file,
-            Filename=path,
-            Bucket=self.bucket,
-            Key=key,
-            ExtraArgs={"ContentType": content_type},
-        )
+        await asyncio.to_thread(self._upload_sync, path, key, content_type)
 
     # ---- reads --------------------------------------------------------------
     async def head(self, key: str) -> dict:

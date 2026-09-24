@@ -13,6 +13,8 @@ import os
 from dataclasses import dataclass
 from typing import Protocol
 
+from lib.audio_prep import AudioChunk, downmix_wav, is_wav, split_wav
+
 WHISPER_MODEL = "whisper-1"
 MAX_TRANSCRIBE_BYTES = 24 * 1024 * 1024  # keep safely under the API's 25 MB request cap
 
@@ -49,13 +51,56 @@ class WhisperTranscription:
         self._stt = OpenAISpeechToText(api_key=api_key)
 
     async def transcribe(self, audio_path: str) -> TranscriptionResult:
+        chunks, cleanup = self._prepare(audio_path)
+        try:
+            all_segments: list[RawSegment] = []
+            language: str | None = None
+            for chunk in chunks:
+                result = await self._transcribe_one(chunk.path)
+                language = language or result.language
+                for segment in result.segments:
+                    all_segments.append(
+                        RawSegment(
+                            start_seconds=round(segment.start_seconds + chunk.offset_seconds, 3),
+                            end_seconds=round(segment.end_seconds + chunk.offset_seconds, 3),
+                            text=segment.text,
+                        )
+                    )
+            all_segments.sort(key=lambda segment: segment.start_seconds)
+            return TranscriptionResult(segments=all_segments, language=language)
+        finally:
+            for path in cleanup:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+
+    def _prepare(self, audio_path: str) -> tuple[list[AudioChunk], list[str]]:
+        """Keep real transcription working for long narrations: oversized WAVs are
+        downmixed to 16 kHz mono and split into chunks under the request cap."""
         size = os.path.getsize(audio_path)
-        if size > MAX_TRANSCRIBE_BYTES:
+        if size <= MAX_TRANSCRIBE_BYTES:
+            return [AudioChunk(path=audio_path, offset_seconds=0.0, temporary=False)], []
+
+        if not is_wav(audio_path):
             raise AudioTooLargeForTranscription(
-                f"audio is {size / (1024 * 1024):.1f} MB — the transcription API accepts "
-                "25 MB per request; chunked transcription of longer narrations ships in stage 2"
+                f"audio is {size / (1024 * 1024):.1f} MB — the transcription API accepts 25 MB "
+                "per request, and this compressed format cannot be split in-pod. Upload a "
+                "shorter file or a WAV, which is split automatically."
             )
-        with open(audio_path, "rb") as handle:
+
+        cleanup: list[str] = []
+        working = downmix_wav(audio_path)
+        cleanup.append(working)
+        if os.path.getsize(working) <= MAX_TRANSCRIBE_BYTES:
+            return [AudioChunk(path=working, offset_seconds=0.0, temporary=True)], cleanup
+
+        chunks = split_wav(working, MAX_TRANSCRIBE_BYTES)
+        cleanup.extend(chunk.path for chunk in chunks)
+        return chunks, cleanup
+
+    async def _transcribe_one(self, path: str) -> TranscriptionResult:
+        with open(path, "rb") as handle:
             response = await self._stt.transcribe(
                 file=handle,
                 model=WHISPER_MODEL,

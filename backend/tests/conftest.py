@@ -45,3 +45,17 @@ async def aclient():
 
 
 # --- app-specific fixtures below this line ---
+
+import filelock
+
+# Cross-process lock (works across xdist workers, each its own OS process) guarding the
+# shared 'localstoragestub' supervisor program. test_tscheck_storage_failure_returns_424.py
+# stops/starts that process; any test that talks to object storage (uploads, audio GETs)
+# must not run while it is intentionally down. Acquire this lock for the duration of any
+# storage-touching critical section.
+STORAGE_STUB_LOCK_PATH = "/tmp/tscheck-localstoragestub.lock"
+
+
+@pytest.fixture(scope="session")
+def storage_stub_lock() -> filelock.FileLock:
+    return filelock.FileLock(STORAGE_STUB_LOCK_PATH)

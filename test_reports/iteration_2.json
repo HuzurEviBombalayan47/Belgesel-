@@ -1,0 +1,77 @@
+{
+  "iteration": 2,
+  "mode": "retest",
+  "summary": "Retest of the large-file-upload/502 bug fix. 14 backend tests passed (added a fix for a genuine test-suite race between the storage-outage test and the multipart-upload tests, plus one new backend test for the R2/Whisper-not-swapped criterion) + 5 browser checks re-ran and passed. No app bugs found.",
+  "passed": 19,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    "Fixed a test-infrastructure race (not an app bug): test_tscheck_storage_failure_returns_424.py stops/starts the shared 'localstoragestub' supervisor program while test_tscheck_large_file_multipart_upload.py's tests run concurrently under xdist -n2/--dist loadscope, causing large-file uploads/GETs to intermittently hit the stub mid-outage (424/500). Added a cross-process filelock (tests/conftest.py: storage_stub_lock fixture) that both files now acquire around their storage-touching critical sections. Full suite is deterministic across 3 consecutive runs after the fix."
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "REPORTED BUG FIXED: large-file upload no longer 502s (>32MB triggers boto3 multipart with explicit TransferConfig)",
+      "name": "test_large_file_upload_returns_201_with_correct_size_and_defers_transcription",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/projects with /tmp/big-narration.wav (48MB) -> 201; audio.object_key startswith audio/<id>/; audio.size_bytes == 50540804 (within 2000-byte tolerance); transcription.status was 'pending'/'processing' at response time, proving upload doesn't block on transcription."
+    },
+    {
+      "criterion": "REPORTED BUG FIXED: large-file upload works via the browser UI too (small fixture for speed)",
+      "name": "upload-large-file-via-public-url",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Re-ran persisted check against the public URL: selecting /tmp/speech23.wav via upload-file-input navigated to /projects/<uuid> with editor-page rendered. Screenshot: upload-large-file-via-public-url-big-file-editor-loaded.png."
+    },
+    {
+      "criterion": "Multipart round-trip is byte-exact, not truncated",
+      "name": "test_large_file_streams_intact_full_and_ranged",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/projects/{id}/audio for the 48MB project -> 200, content-length == audio.size_bytes (50540804); Range bytes=0-999 -> 206 with content-range header and exactly 1000 bytes returned."
+    },
+    {
+      "criterion": "Large-file transcription is real and timeline-correct (chunk offsets applied)",
+      "name": "test_large_file_transcription_completes_with_timeline_correct_segments",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Polled GET /api/projects/{id} until transcription.status == 'ready' (within the 180s budget); GET /api/projects/{id}/transcript returned len(segments) > 50 (target ~221), proving Whisper chunking + reassembly worked for the ~26min file."
+    },
+    {
+      "criterion": "A storage failure shows the ACTUAL reason (424 + JSON detail), not a generic gateway error, and recovers",
+      "name": "test_storage_down_returns_424_with_actionable_detail_then_recovers",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "With localstoragestub stopped: POST /api/projects -> 424, content-type application/json, detail contains 'object storage' and 'r2_endpoint_url'/'r2_account_id'. After restarting the stub (+3s settle): a following upload -> 201."
+    },
+    {
+      "criterion": "Small-file path and the editor timeline still work (no regression) — API",
+      "name": "test_upload_creates_project_with_stored_audio / test_audio_stream_supports_full_and_range_requests",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/projects with /tmp/speech23.wav -> 201, duration_seconds in [20,27]; GET .../audio -> 200 full body; Range GET -> 206 with content-range and exactly 1000 bytes."
+    },
+    {
+      "criterion": "Small-file path and the editor timeline still work (no regression) — UI",
+      "name": "transcript-segments-display-and-seek",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Re-ran persisted check: transcription-status-badge reached 'transcript ready'; transcript-list > transcript-segment-0 visible with timestamp+text; same segment rendered in timeline-lane-transcript; click seeked the audio."
+    },
+    {
+      "criterion": "Editor shows all timeline lanes and transport controls work (no regression)",
+      "name": "timeline-lanes-scrub-and-zoom / audio-playback-controls-timecode",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Re-ran persisted checks: timeline-ruler, timeline-lane-transcript, timeline-lane-audio, timeline-waveform, timeline-playhead all visible; scrub + zoom-in/out/fit worked with lanes intact. transport-play-button click advanced timecode-readout off 00:00:00:00, second click paused it."
+    },
+    {
+      "criterion": "R2 and real Whisper transcription were not swapped out for mocks/local fallback",
+      "name": "test_system_status_reports_r2_and_whisper / test_storage_module_has_no_local_disk_fallback / test_transcription_module_is_not_mocked",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/system/status -> storage.provider == 'cloudflare_r2', storage.configured == true, transcription.configured == true, transcription.model == 'whisper-1'. Static read of lib/storage.py confirms boto3 usage with no disk-fallback markers; services/transcription.py references 'whisper-1' with no mock/stub markers."
+    }
+  ]
+}

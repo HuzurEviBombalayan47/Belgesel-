@@ -31,7 +31,13 @@ from lib.media import (
     probe_duration,
     sanitize_filename,
 )
-from lib.storage import StorageNotConfigured, get_storage, iter_body
+from lib.storage import (
+    StorageNotConfigured,
+    StorageUploadError,
+    describe_storage_error,
+    get_storage,
+    iter_body,
+)
 from models.projects import AudioAsset, Project, ProjectSummary, TranscriptionInfo, utcnow
 from models.timeline import TranscriptSegment
 from services.transcription import (
@@ -205,9 +211,21 @@ async def create_project(
             await storage.upload_file(tmp_path, object_key, content_type)
         except StorageNotConfigured:
             raise
+        except StorageUploadError as exc:
+            # 424 (Failed Dependency), deliberately NOT 502: the platform ingress
+            # replaces gateway-class response bodies with its own error page, which is
+            # what reduced a real storage error to a bare "request failed with 502".
+            logger.error("R2 upload failed for %s: %s", object_key, exc)
+            raise HTTPException(
+                status_code=424,
+                detail=f"Upload to object storage failed — {exc}",
+            ) from exc
         except Exception as exc:
             logger.exception("R2 upload failed for %s", object_key)
-            raise HTTPException(status_code=502, detail=f"object storage upload failed: {exc}") from exc
+            raise HTTPException(
+                status_code=424,
+                detail=f"Upload to object storage failed — {describe_storage_error(exc)}",
+            ) from exc
 
         scheduled = get_transcription_service() is not None
         project = Project(

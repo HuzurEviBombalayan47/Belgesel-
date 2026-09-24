@@ -84,8 +84,10 @@ async def feature_disabled_handler(request, exc: FeatureDisabled):
 
 @app.exception_handler(StorageNotConfigured)
 async def storage_not_configured_handler(request, exc: StorageNotConfigured):
+    # 424 rather than 503: gateway-class statuses get their bodies replaced by the
+    # platform ingress, hiding this actionable message from the UI.
     return JSONResponse(
-        status_code=503,
+        status_code=424,
         content={"detail": str(exc), "code": "storage_not_configured"},
     )
 

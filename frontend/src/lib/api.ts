@@ -65,7 +65,21 @@ export function apiUpload<T>(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(xhr.response as T);
       } else {
-        reject(new ApiError(xhr.status || 0, xhr.response));
+        // responseType="json" yields null for a non-JSON error body (e.g. an HTML
+        // gateway page), which would collapse into a bare "request failed with 502".
+        // Fall back to the raw text so the real backend message survives.
+        let body: unknown = xhr.response;
+        if (body == null) {
+          const text = (xhr.responseText || "").trim();
+          if (text) {
+            try {
+              body = JSON.parse(text);
+            } catch {
+              body = { detail: text.slice(0, 400) };
+            }
+          }
+        }
+        reject(new ApiError(xhr.status || 0, body));
       }
     };
     xhr.onerror = () => reject(new ApiError(0, null));

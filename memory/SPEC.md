@@ -44,7 +44,25 @@ Ids are string uuid4. Datetimes stored aware-UTC, normalised on read.
 - `GET  /projects/{id}/renders` → RenderJob[]
 
 Error contract: 415 unsupported type, 413 too large, 404 unknown project,
-410 object missing in storage, 501 disabled seam, 503 storage not configured.
+410 object missing in storage, 501 disabled seam, **424 storage failure or storage not
+configured** (deliberately not 502/503 — the platform ingress replaces gateway-class
+response bodies with its own error page, which hides the real message from the UI).
+
+## Upload internals (large files)
+
+- `lib/storage.py` uploads ≤32 MB as a single `put_object` and larger files through
+  boto3's managed **multipart** transfer (`TransferConfig`, 16 MB parts). A plain
+  `upload_file` on an endpoint without multipart support raised `KeyError: 'UploadId'`
+  — the original cause of the reported 502.
+- Botocore failures are translated by `describe_storage_error()` into actionable
+  sentences (bad access key, signature mismatch, missing bucket, unreachable endpoint,
+  non-compliant S3 response) and returned as the `detail` of a 424.
+- `lib/audio_prep.py` keeps **real** transcription working past the API's 25 MB cap:
+  an oversized WAV is downmixed to 16 kHz mono and, if still too large, split into
+  sequential chunks whose segment timestamps are offset back onto the original
+  timeline. Compressed formats over the cap fail with an explicit message (no
+  in-pod decoder). Verified: a 48 MB / 26-minute WAV produced 221 segments spanning
+  the full 1579 s.
 
 ## Architecture seams for stage 2
 

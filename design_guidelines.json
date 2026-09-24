@@ -1,0 +1,207 @@
+{
+  "project_name": "Chronicle AI - Professional Documentary Studio",
+  "archetype": "Cinematic Archive & High-Precision Editorial (Dark Obsidian, Warm Amber, Film Slate, Oxide Green)",
+  "theme": "dark",
+  "typography": {
+    "font_family_heading": "'Space Grotesk Variable', -apple-system, BlinkMacSystemFont, sans-serif",
+    "font_family_body": "'Geist Variable', -apple-system, BlinkMacSystemFont, sans-serif",
+    "font_family_mono": "'JetBrains Mono Variable', monospace",
+    "css_import": "@import \"@fontsource-variable/space-grotesk\";\n@import \"@fontsource-variable/geist\";\n@import \"@fontsource-variable/jetbrains-mono\";",
+    "font_sans_token": "var(--font-sans, 'Geist Variable', sans-serif)",
+    "font_heading_token": "var(--font-heading, 'Space Grotesk Variable', sans-serif)",
+    "font_mono_token": "var(--font-mono, 'JetBrains Mono Variable', monospace)",
+    "scale_px": {
+      "display": 56,
+      "h1": 40,
+      "h2": 28,
+      "h3": 20,
+      "body": 16,
+      "caption": 14
+    },
+    "letter_spacing": {
+      "heading": "-0.03em",
+      "mono_label": "0.15em",
+      "body": "-0.01em"
+    }
+  },
+  "colors": {
+    "palette_name": "Obsidian Archive & Documentary Gold",
+    "accent": "#F59E0B",
+    "on_accent": "#0A0D14",
+    "surfaces": [
+      {
+        "name": "page",
+        "kind": "solid",
+        "bg": "#090B0E",
+        "on_bg": "#F1F5F9",
+        "on_bg_muted": "#94A3B8",
+        "roles": {
+          "border": "#1E293B",
+          "link": "#FBBF24",
+          "error": "#F87171",
+          "success": "#34D399",
+          "warning": "#FBBF24"
+        }
+      },
+      {
+        "name": "panel",
+        "kind": "solid",
+        "bg": "#0F141C",
+        "on_bg": "#F8FAFC",
+        "on_bg_muted": "#94A3B8",
+        "roles": {
+          "border": "#1E293B",
+          "hover_bg": "#161E2E",
+          "active_tab": "#222F43"
+        }
+      },
+      {
+        "name": "timeline_surface",
+        "kind": "solid",
+        "bg": "#0B0E14",
+        "on_bg": "#F1F5F9",
+        "on_bg_muted": "#64748B",
+        "roles": {
+          "ruler_mark": "#334155",
+          "playhead_line": "#EF4444",
+          "waveform_bar": "#38BDF8",
+          "waveform_bg": "#071829",
+          "transcript_block_bg": "#132338",
+          "transcript_block_border": "#1E3A5F",
+          "scene_empty_border": "#1E293B"
+        }
+      },
+      {
+        "name": "chip_badge",
+        "kind": "solid",
+        "bg": "#1E293B",
+        "on_bg": "#F1F5F9",
+        "on_bg_muted": "#94A3B8"
+      },
+      {
+        "name": "amber_pill",
+        "kind": "solid",
+        "bg": "#78350F",
+        "on_bg": "#FEF3C7",
+        "on_bg_muted": "#FDE68A"
+      },
+      {
+        "name": "inverse",
+        "kind": "solid",
+        "bg": "#F8FAFC",
+        "on_bg": "#0F172A",
+        "on_bg_muted": "#475569"
+      },
+      {
+        "name": "hero_banner",
+        "kind": "image",
+        "contrast_against": "#0B0E14",
+        "guarantee": "scrim: linear-gradient(180deg, rgba(9,11,14,0.7) 0%, rgba(9,11,14,0.95) 100%)",
+        "on_bg": "#FFFFFF",
+        "on_bg_muted": "#CBD5E1",
+        "roles": {
+          "link": "#FBBF24",
+          "error": "#F87171",
+          "success": "#34D399"
+        }
+      }
+    ]
+  },
+  "entry_surfaces": {
+    "/": "editorial cinematic studio dashboard — master header with storage badge + Turkish/UTC timecode, upload dropzone hero with filmstrip accents, seed project selector, and full-screen professional multi-lane timeline workspace below",
+    "/projects/:id": "studio NLE workbench — top transport header, split vertical transcript inspector + roadmap scene queue, bottom zoomable multi-lane audio & documentary visual timeline with live timecode scrub"
+  },
+  "visual_enhancers": {
+    "film_grain": "Subtle 2% noise texture on timeline backdrop to evoke vintage archive film chemistry",
+    "tactile_meters": "Studio VU meter and decibel ticks beside audio transport controls for broadcast feel",
+    "timecode_display": "SMPTE format (00:01:24:18) rendered in JetBrains Mono with micro drop-shadow and amber readout",
+    "roadmap_scene_treatments": [
+      {
+        "id": "archival_photos",
+        "label": "Archival Photo Animation",
+        "desc": "Ken Burns 2.5D parallax depth, grain filter & sepia tinting on historical photographs",
+        "status": "Stage 2 Roadmap"
+      },
+      {
+        "id": "cartographic_maps",
+        "label": "Dynamic Historical Maps",
+        "desc": "Animated route lines, territory shading & camera pan across vintage cartography",
+        "status": "Stage 2 Roadmap"
+      },
+      {
+        "id": "motion_typography",
+        "label": "Documentary Kinetic Type",
+        "desc": "Keyword magnification, speech emphasis highlight, and editorial quote cards",
+        "status": "Stage 2 Roadmap"
+      },
+      {
+        "id": "stock_broll",
+        "label": "Cinematic B-Roll & Archive Footage",
+        "desc": "AI matched contextual 35mm/16mm film footage with lens flare transitions",
+        "status": "Stage 2 Roadmap"
+      }
+    ]
+  },
+  "image_urls": {
+    "cinematic_projector": {
+      "url": "https://images.unsplash.com/photo-1779696304953-a4d28917f7fe?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwzfHxjaW5lbWF0aWMlMjBkb2N1bWVudGFyeSUyMGZpbG1tYWtlciUyMGZpbG0lMjBhcmNoaXZlfGVufDB8fHx8MTc5MDIzMDQ5N3ww&ixlib=rb-4.1.0&q=85",
+      "category": "hero_background_and_branding",
+      "description": "Vintage reel film projector with analog mechanical reels for documentary theme"
+    },
+    "historical_film_strip": {
+      "url": "https://images.unsplash.com/photo-1736710744803-53f9d3071e4d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwxfHxjaW5lbWF0aWMlMjBkb2N1bWVudGFyeSUyMGZpbG1tYWtlciUyMGZpbG0lMjBhcmNoaXZlfGVufDB8fHx8MTc5MDIzMDQ5N3ww&ixlib=rb-4.1.0&q=85",
+      "category": "empty_state_scene_preview",
+      "description": "Gloved archival technician holding 35mm film strip against light table"
+    },
+    "vintage_cartography_map": {
+      "url": "https://images.unsplash.com/photo-1532154078493-c1c3eef2023c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHw0fHxoaXN0b3JpY2FsJTIwdmludGFnZSUyMG1hcCUyMGRvY3VtZW50JTIwYXJjaGl0ZWN0dXJlfGVufDB8fHx8MTc5MDIzMDQ5N3ww&ixlib=rb-4.1.0&q=85",
+      "category": "roadmap_map_scene_preview",
+      "description": "High resolution vintage architectural survey and terrain map"
+    },
+    "archival_parchment_maps": {
+      "url": "https://images.unsplash.com/photo-1473163928189-364b2c4e1135?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwxfHxoaXN0b3JpY2FsJTIwdmludGFnZSUyMG1hcCUyMGRvY3VtZW50JTIwYXJjaGl0ZWN0dXJlfGVufDB8fHx8MTc5MDIzMDQ5N3ww&ixlib=rb-4.1.0&q=85",
+      "category": "roadmap_historical_documents",
+      "description": "Antique parchment maps and exploration documents"
+    },
+    "film_clapperboard": {
+      "url": "https://images.pexels.com/photos/29287244/pexels-photo-29287244.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "documentary_production_mark",
+      "description": "Production film clapperboard in Istanbul studio environment"
+    }
+  },
+  "layout_and_grids": {
+    "mobile_first_strategy": "On viewport < 768px, wrap timeline tracks into touch-scrollable horizontal track cards with pinch zoom hints and sticky timecode scrubber bar at bottom",
+    "desktop_workbench_grid": "Three-tiered layout: 1. Top studio transport bar (64px fixed) -> 2. Center split stage (Left: 38% Transcript Inspector + Keyword tags, Right: 62% Documentary Scene Visualizer & Stage 2 Roadmap Previews) -> 3. Bottom Multi-Track NLE Timeline (Time ruler + Playhead + Waveform Audio Lane + Whisper Transcript Segments Lane + Visual Scene Markers Lane + Zoom & Snapping toolbar)",
+    "timeline_height_px": 320,
+    "ruler_granularity_seconds": [1, 5, 10, 30, 60]
+  },
+  "motion_and_interactions": {
+    "playhead_scrub": "Smooth linear interpolation synced with requestAnimationFrame on audio HTML5 timeupdate event",
+    "waveform_hover": "Hovering over waveform displays timestamp tooltip in mm:ss.ms format with subtle cyan glow",
+    "transcript_sync": "Currently active transcript segment highlights in Amber border with subtle pulse and auto-scrolls transcript card into view",
+    "modal_transitions": "Scale 0.96 to 1.0 with 150ms ease-out spring animation"
+  },
+  "component_structure": {
+    "Header": "frontend/src/components/Header.tsx - Studio brand, R2 storage indicator badge with info modal, project switcher, Render Video button with tooltip explaining Stage 2 roadmap",
+    "AudioUploader": "frontend/src/components/AudioUploader.tsx - Drag-and-drop audio file zone with waveform preview simulation, upload progress bar, Whisper transcription trigger, and demo sample selector (e.g. 'The Rise of Ancient Cartography')",
+    "TimelineEditor": "frontend/src/components/TimelineEditor.tsx - Zoomable multi-track timeline container with Ruler, Playhead, Audio Track (wavesurfer-style canvas or SVG waveform), Transcript Track (interactive pill segments with start/end time), Visual Scenes Track (empty slots with elegant documentary style placeholders)",
+    "AudioTransport": "frontend/src/components/AudioTransport.tsx - Play/Pause (Spacebar shortcut), Skip 5s, Timecode Readout (SMPTE), Volume slider, Zoom level (+/-), Magnetic Snap toggle",
+    "TranscriptPanel": "frontend/src/components/TranscriptPanel.tsx - List of transcribed speech segments with editable text tags, speaker cues, clickable timestamps that seek the playhead, search filter",
+    "ScenesRoadmapPanel": "frontend/src/components/ScenesRoadmapPanel.tsx - Visual documentary treatment cards (Archival Ken Burns, 3D Dynamic Maps, Kinetic Typography, Film Overlays) highlighting Stage 2 capabilities",
+    "RenderDialog": "frontend/src/components/RenderDialog.tsx - Explanatory modal describing the video engine synthesis pipeline with disabled high-res export trigger and beta signup"
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the Professional Documentary aesthetic. Avoid cartoonish meme or shitpost visuals. Use sophisticated dark tones (#090B0E, #0F141C) paired with warm amber (#F59E0B) and cyan (#38BDF8) audio accents.",
+    "Implement full audio playback functionality: user can upload MP3/WAV/M4A, play/pause, seek by clicking anywhere on the timeline waveform or transcript blocks, and scrub with the red playhead.",
+    "Provide pre-loaded documentary demo projects (e.g. 'The Lost Libraries of Alexandria - 45s Narration', 'Voyage Across the Bosphorus - 30s Narration') so the user can immediately experience the timeline, waveform, and transcript segments even without uploading a file.",
+    "Show clear storage status: if Cloudflare R2 credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) are not configured in backend .env, the backend gracefully falls back to local uploads/mock storage while the UI shows a crisp 'Local Storage Mode' status pill with setup instructions in a dialog.",
+    "Make transcription robust: include a Whisper transcription endpoint in the FastAPI backend (mock/emergent Whisper API / local fallback) that breaks speech into timestamps [ { start: 0, end: 4.2, text: '...' } ] so transcript segments correctly populate the timeline and transcript list.",
+    "Include every required data-testid attribute on all interactive elements (e.g. data-testid='upload-audio-dropzone', data-testid='play-pause-button', data-testid='timeline-ruler', data-testid='timeline-playhead', data-testid='transcript-segment-0', data-testid='render-video-button', data-testid='storage-status-badge').",
+    "Ensure mobile responsiveness with horizontal scroll container and touch targets on timeline."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": {
+    "design_purity": "No purple-gradient-on-white AI slop. Stick to cinematic archive colorways and high density editorial design.",
+    "spacing": "Generous container padding (p-6, p-8) and tight high-density timeline tracks (h-14 per lane).",
+    "accessibility": "All text colors meet 4.5:1 contrast against their dark panels. Focus outlines are distinct amber rings."
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "iteration": 1,
+  "mode": "generate",
+  "summary": "All 8 acceptance criteria exercised: 7 backend tests (all passed) + 9 browser checks (all passed, including one run through the public ingress URL). No bugs found.",
+  "passed": 16,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "User uploads ONE audio file and a project is created",
+      "name": "upload-audio-creates-project",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Dropzone accepted /tmp/speech23.wav, app navigated to /projects/<uuid>, editor-page rendered with title 'speech23'; home card visible after navigating back."
+    },
+    {
+      "criterion": "User uploads ONE audio file and a project is created (public ingress URL)",
+      "name": "upload-audio-creates-project-via-public-url",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Ran the same upload flow against https://doc-timeline-5.preview.emergentagent.com (APP_URL) — editor-page rendered correctly through the ingress path."
+    },
+    {
+      "criterion": "Uploaded audio is stored in object storage and is streamable",
+      "name": "test_upload_creates_project_with_stored_audio / test_audio_stream_supports_full_and_range_requests",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/projects -> 201, audio.object_key startswith audio/<id>/, duration_seconds ~23s. GET /api/projects/{id}/audio -> 200 full body; Range bytes=0-999 -> 206 with content-range header, 1000 bytes returned."
+    },
+    {
+      "criterion": "Audio plays inside the editor interface",
+      "name": "audio-playback-controls-timecode",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "transport-play-button click advanced timecode-readout away from 00:00:00:00 within 5s; second click paused it (timecode stable across a 1.5s poll)."
+    },
+    {
+      "criterion": "Transcript segments with timestamps display",
+      "name": "transcript-segments-display-and-seek / test_transcription_completes_and_transcript_lists_segments",
+      "lane": "browser+backend",
+      "status": "passed",
+      "evidence": "Backend: polled GET /api/projects/{id} until transcription.status=='ready' (~7s), GET /api/projects/{id}/transcript returned >=1 segment with start/end/text. Browser: transcription-status-badge read 'transcript ready', transcript-list > transcript-segment-0 showed timestamp+text, same segment rendered in timeline-lane-transcript, click seeked audio."
+    },
+    {
+      "criterion": "Timeline/editor UI loads with all lanes",
+      "name": "timeline-lanes-scrub-and-zoom",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "timeline-ruler, timeline-lane-scenes, timeline-lane-transcript, timeline-lane-audio, timeline-waveform, timeline-playhead all visible. Clicking timeline-body moved timecode-readout. zoom-in/zoom-out/zoom-fit each ran with lanes remaining visible, no errors."
+    },
+    {
+      "criterion": "Visual scenes lane is prepared but empty (stage 2)",
+      "name": "scenes-lane-empty-with-roadmap / test_scenes_endpoint_returns_empty_list_for_new_project",
+      "lane": "browser+backend",
+      "status": "passed",
+      "evidence": "Backend: GET /api/projects/{id}/scenes -> 200, []. Browser: scenes-lane-empty placeholder visible, scenes-panel showed exactly 4 scenes-roadmap-item cards."
+    },
+    {
+      "criterion": "Render button exists but honestly reports it is disabled",
+      "name": "render-dialog-disabled-stage2 / test_create_render_returns_501_stage_two",
+      "lane": "browser+backend",
+      "status": "passed",
+      "evidence": "Backend: POST /api/projects/{id}/renders -> 501, detail mentions 'stage 2'. Browser: render-video-button opened render-dialog, render-confirm-button was disabled, no render-succeeded element ever present."
+    },
+    {
+      "criterion": "Error and edge states are honest, and long processing does not break the UI",
+      "name": "unknown-project-shows-editor-error / transcription-processing-resolves-without-reload / test_unknown_project_returns_404 / test_non_audio_upload_returns_415",
+      "lane": "browser+backend",
+      "status": "passed",
+      "evidence": "Backend: GET /api/projects/unknown-id -> 404; POST /api/projects with text/plain file -> 415. Browser: /projects/unknown-id rendered editor-error with a visible back link (not blank); during transcription the amber processing badge showed while audio stayed playable (timecode kept advancing on play), then flipped to 'transcript ready' without any page reload."
+    }
+  ]
+}
